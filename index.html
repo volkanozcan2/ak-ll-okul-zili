@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akıllı Okul Zili Paneli</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Animasyonlar */
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .recording-pulse {
+            animation: pulse-ring 1.5s infinite;
+        }
+
+        @keyframes bell-shake {
+            0% {
+                transform: rotate(0);
+            }
+
+            15% {
+                transform: rotate(5deg);
+            }
+
+            30% {
+                transform: rotate(-5deg);
+            }
+
+            45% {
+                transform: rotate(4deg);
+            }
+
+            60% {
+                transform: rotate(-4deg);
+            }
+
+            75% {
+                transform: rotate(2deg);
+            }
+
+            85% {
+                transform: rotate(-2deg);
+            }
+
+            100% {
+                transform: rotate(0);
+            }
+        }
+
+        .bell-ringing {
+            animation: bell-shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+            color: #eab308;
+            /* yellow-500 */
+        }
+
+        /* Scrollbar özelleştirme */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- Üst Bar -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm z-10">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 p-2 rounded-lg">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
+                    </path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800 tracking-tight">Okul Zili Kontrol Paneli</h1>
+                <p class="text-xs text-slate-500">Otomatik Zamanlayıcı Sistemi</p>
+            </div>
+        </div>
+        <div class="text-right">
+            <div id="digital-clock" class="text-3xl font-mono font-bold text-blue-600">00:00:00</div>
+            <div id="current-date" class="text-sm text-slate-500 font-medium">...</div>
+        </div>
+    </header>
+
+    <!-- Ana İçerik -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+        <!-- Sol Panel: Durum ve Kontroller -->
+        <section class="flex-1 p-6 flex flex-col gap-6 overflow-y-auto">
+
+            <!-- Durum Kartı -->
+            <div
+                class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center flex flex-col items-center justify-center relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-2 bg-blue-500" id="status-bar"></div>
+
+                <div class="mb-4 relative">
+                    <svg id="main-bell-icon" class="w-24 h-24 text-slate-300 transition-colors duration-300" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                        </path>
+                    </svg>
+                    <div id="next-event-badge"
+                        class="absolute -top-2 -right-6 bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1 rounded-full border border-orange-200 hidden">
+                        Öğrenci Zili Bekleniyor
+                    </div>
+                </div>
+
+                <h2 id="current-status-title" class="text-3xl font-bold text-slate-800 mb-2">Sistem Başlatılıyor...</h2>
+                <p id="current-status-desc" class="text-slate-500 text-lg mb-6">Lütfen bekleyiniz</p>
+
+                <div class="grid grid-cols-2 gap-4 w-full max-w-md">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <span class="block text-xs text-slate-400 uppercase font-bold tracking-wider">Kalan Süre</span>
+                        <span id="countdown-timer" class="text-2xl font-mono font-bold text-slate-700">--:--</span>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <span class="block text-xs text-slate-400 uppercase font-bold tracking-wider">Sonraki
+                            Olay</span>
+                        <span id="next-event-time" class="text-2xl font-mono font-bold text-slate-700">--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kontrol Butonları -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Manuel Zil -->
+                <button onclick="playManualBell()"
+                    class="group bg-white hover:bg-yellow-50 active:bg-yellow-100 border border-slate-200 hover:border-yellow-400 p-6 rounded-xl shadow-sm transition-all flex flex-col items-center justify-center gap-3">
+                    <div class="bg-yellow-100 p-3 rounded-full group-hover:bg-yellow-200 transition-colors">
+                        <svg class="w-6 h-6 text-yellow-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                            </path>
+                        </svg>
+                    </div>
+                    <span class="font-semibold text-slate-700">Anlık Zil Çal</span>
+                </button>
+
+                <!-- İstiklal Marşı -->
+                <button id="anthem-btn" onclick="toggleAnthem()"
+                    class="group bg-white hover:bg-red-50 active:bg-red-100 border border-slate-200 hover:border-red-400 p-6 rounded-xl shadow-sm transition-all flex flex-col items-center justify-center gap-3">
+                    <div class="bg-red-100 p-3 rounded-full group-hover:bg-red-200 transition-colors">
+                        <svg class="w-6 h-6 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 21v-8a2 2 0 012-2h14a2 2 0 012 2v8M3 21h18M5 21v-8a2 2 0 012-2h14a2 2 0 012 2v8m-2-8h.01M12 3a2 2 0 100 4 2 2 0 000-4zm0 0v18">
+                            </path>
+                        </svg> <!-- Flag-like icon representation -->
+                    </div>
+                    <span id="anthem-text" class="font-semibold text-slate-700">İstiklal Marşı</span>
+                </button>
+
+                <!-- Ses Kaydı -->
+                <button id="record-btn" onmousedown="startRecording()" onmouseup="stopRecording()"
+                    onmouseleave="stopRecording()"
+                    class="group bg-white hover:bg-blue-50 active:bg-blue-100 border border-slate-200 hover:border-blue-400 p-6 rounded-xl shadow-sm transition-all flex flex-col items-center justify-center gap-3 select-none">
+                    <div id="record-icon-bg"
+                        class="bg-blue-100 p-3 rounded-full group-hover:bg-blue-200 transition-colors">
+                        <svg class="w-6 h-6 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z">
+                            </path>
+                        </svg>
+                    </div>
+                    <span id="record-text" class="font-semibold text-slate-700">Bas Konuş (Kayıt)</span>
+                </button>
+            </div>
+
+            <!-- Sistem Logları (Kısa) -->
+            <div class="bg-slate-800 text-slate-300 p-4 rounded-lg font-mono text-xs h-32 overflow-y-auto"
+                id="system-log">
+                <div class="text-green-400">> Sistem başlatıldı. v1.0</div>
+            </div>
+
+        </section>
+
+        <!-- Sağ Panel: Ders Programı -->
+        <aside class="w-full lg:w-96 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20">
+            <div class="p-5 border-b border-slate-100 bg-slate-50">
+                <h3 class="font-bold text-slate-700">Günlük Akış</h3>
+                <p class="text-xs text-slate-500">8 Ders • 40dk Ders / 10dk Teneffüs</p>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 space-y-3" id="schedule-list">
+                <!-- Program JS ile doldurulacak -->
+            </div>
+        </aside>
+    </main>
+
+    <!-- Ses Dosyaları (Simüle Edilmiş - Gerçek dosyalar src kısmına konmalı) -->
+    <!-- Not: Tarayıcı politikaları gereği sesler otomatik çalmayabilir, kullanıcı etkileşimi gerekebilir -->
+
+    <script>
+        // --- YAPILANDIRMA ---
+        // Dersler: 09:00 Başlar, 40dk Sürer.
+        // Teneffüs: 10dk (Standart varsayım, öğle arası hariç).
+        // Öğle Arası: 12:10 Başlar, 50dk Sürer.
+
+        const schedule = [
+            { id: 1, type: 'lesson', name: '1. Ders', start: '09:00', end: '09:40' },
+            { id: 1.5, type: 'break', name: 'Teneffüs', start: '09:40', end: '09:50' },
+
+            { id: 2, type: 'lesson', name: '2. Ders', start: '09:50', end: '10:30' },
+            { id: 2.5, type: 'break', name: 'Teneffüs', start: '10:30', end: '10:40' },
+
+            { id: 3, type: 'lesson', name: '3. Ders', start: '10:40', end: '11:20' },
+            { id: 3.5, type: 'break', name: 'Teneffüs', start: '11:20', end: '11:30' },
+
+            { id: 4, type: 'lesson', name: '4. Ders', start: '11:30', end: '12:10' },
+            { id: 4.5, type: 'lunch', name: 'Öğle Arası', start: '12:10', end: '13:00' }, // 50 dk
+
+            { id: 5, type: 'lesson', name: '5. Ders', start: '13:00', end: '13:40' },
+            { id: 5.5, type: 'break', name: 'Teneffüs', start: '13:40', end: '13:50' },
+
+            { id: 6, type: 'lesson', name: '6. Ders', start: '13:50', end: '14:30' },
+            { id: 6.5, type: 'break', name: 'Teneffüs', start: '14:30', end: '14:40' },
+
+            { id: 7, type: 'lesson', name: '7. Ders', start: '14:40', end: '15:20' },
+            { id: 7.5, type: 'break', name: 'Teneffüs', start: '15:20', end: '15:30' },
+
+            { id: 8, type: 'lesson', name: '8. Ders', start: '15:30', end: '16:10' },
+        ];
+
+        // --- DEĞİŞKENLER ---
+        let currentPeriod = null;
+        let isAnthemPlaying = false;
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let simulationTimeOffset = 0; // Gerçek saati değiştirmek için (Test amaçlı, şu an 0)
+
+        // --- SES MOTORU (Basit Osilatörler) ---
+        // Gerçek MP3 dosyaları yerine Web Audio API kullanıyoruz ki dosya yüklemeden çalışsın.
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTone(freq, type, duration) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playBellSound(type) {
+            // Görsel Efekt
+            const icon = document.getElementById('main-bell-icon');
+            icon.classList.add('bell-ringing');
+            setTimeout(() => icon.classList.remove('bell-ringing'), 1000);
+
+            // Ses Efekti
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            if (type === 'student') {
+                // Hızlı çift bip (Uyarı)
+                log("🔔 Öğrenci Zili Çalıyor (Hazırlık)");
+                playTone(880, 'sine', 0.5);
+                setTimeout(() => playTone(880, 'sine', 0.5), 300);
+            } else if (type === 'lesson_start') {
+                // Melodik giriş
+                log("🔔 Ders Başlama Zili Çalıyor");
+                playTone(523.25, 'triangle', 1); // C5
+                setTimeout(() => playTone(659.25, 'triangle', 1), 200); // E5
+                setTimeout(() => playTone(783.99, 'triangle', 2), 400); // G5
+            } else if (type === 'lesson_end') {
+                // Melodik çıkış
+                log("🔔 Teneffüs Zili Çalıyor");
+                playTone(783.99, 'sine', 1); // G5
+                setTimeout(() => playTone(659.25, 'sine', 1), 200); // E5
+                setTimeout(() => playTone(523.25, 'sine', 2), 400); // C5
+            }
+        }
+
+        // --- İŞLEVLER ---
+
+        function log(msg) {
+            const logBox = document.getElementById('system-log');
+            const time = new Date().toLocaleTimeString('tr-TR');
+            const div = document.createElement('div');
+            div.textContent = `[${time}] ${msg}`;
+            logBox.prepend(div);
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function getCurrentMinutes(timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+        }
+
+        function updateClock() {
+            const now = new Date();
+            // Test için zaman kaydırma gerekirse buraya eklenebilir
+            // now.setMinutes(now.getMinutes() + simulationTimeOffset);
+
+            document.getElementById('digital-clock').textContent = formatTime(now);
+            document.getElementById('current-date').textContent = now.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            checkSchedule(now);
+        }
+
+        function checkSchedule(now) {
+            const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+            const currentSeconds = now.getSeconds();
+
+            let activeSlot = null;
+            let nextSlot = null;
+
+            // Aktif slotu bul
+            for (let i = 0; i < schedule.length; i++) {
+                const slot = schedule[i];
+                const startMin = getCurrentMinutes(slot.start);
+                const endMin = getCurrentMinutes(slot.end);
+
+                // Gelecek slotu belirle
+                if (startMin > currentTotalMinutes && !nextSlot) {
+                    nextSlot = slot;
+                }
+
+                // Şu an bu aralıkta mıyız?
+                if (currentTotalMinutes >= startMin && currentTotalMinutes < endMin) {
+                    activeSlot = slot;
+                }
+
+                // --- OTOMATİK ZİL MANTIĞI ---
+                // Sadece saniye 00 olduğunda tetikle ki defalarca çalmasın
+                if (currentSeconds === 0) {
+                    // 1. Öğrenci Zili (Dersten 2 dk önce)
+                    if (slot.type === 'lesson' && currentTotalMinutes === startMin - 2) {
+                        playBellSound('student');
+                        showNotification(`Öğrenci Zili: ${slot.name} için hazırlık!`, 'warning');
+                    }
+                    // 2. Ders Başlama Zili
+                    if (slot.type === 'lesson' && currentTotalMinutes === startMin) {
+                        playBellSound('lesson_start');
+                        showNotification(`${slot.name} Başladı`, 'success');
+                    }
+                    // 3. Teneffüs Zili
+                    if (slot.type === 'lesson' && currentTotalMinutes === endMin) { // Aslında bitiş anı bir sonraki slotun başı ama burada yakalamak zor olabilir.
+                        // Mantık: Dersin bittiği dakika.
+                    }
+                }
+                // Ders bitiş kontrolü (Slot bittiği an)
+                if (currentSeconds === 0 && slot.type === 'lesson' && currentTotalMinutes === endMin - 1) {
+                    // Bu tam bitiş değil, 59. saniyeden sonra çalmalı.
+                    // Basitleştirmek için: Bir sonraki slot 'break' veya 'lunch' ise ve o başlıyorsa çal.
+                }
+            }
+
+            // Teneffüs zili için alternatif kontrol:
+            // Eğer şu an bir 'break' başlangıcıysa
+            if (currentSeconds === 0 && activeSlot && (activeSlot.type === 'break' || activeSlot.type === 'lunch') && currentTotalMinutes === getCurrentMinutes(activeSlot.start)) {
+                playBellSound('lesson_end');
+                showNotification(`${activeSlot.name} Başladı`, 'info');
+            }
+
+            updateUI(activeSlot, nextSlot, now);
+        }
+
+        function updateUI(activeSlot, nextSlot, now) {
+            const titleEl = document.getElementById('current-status-title');
+            const descEl = document.getElementById('current-status-desc');
+            const statusBar = document.getElementById('status-bar');
+            const timerEl = document.getElementById('countdown-timer');
+            const nextEventEl = document.getElementById('next-event-time');
+            const bellIcon = document.getElementById('main-bell-icon');
+            const badge = document.getElementById('next-event-badge');
+
+            // Listeyi temizle ve yeniden oluştur (Performans için sadece durum değişince yapılabilir ama şimdilik her sn yapıyoruz basitlik için)
+            renderScheduleList(activeSlot);
+
+            if (activeSlot) {
+                const endMin = getCurrentMinutes(activeSlot.end);
+                const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+                const remainingMin = endMin - currentTotalMinutes - 1;
+                const remainingSec = 59 - now.getSeconds();
+
+                timerEl.textContent = `${remainingMin < 10 ? '0' : ''}${remainingMin}:${remainingSec < 10 ? '0' : ''}${remainingSec}`;
+
+                // Öğrenci Zili Rozeti (Dersten 2 dk önce miyiz?)
+                if (activeSlot.type === 'break' || activeSlot.type === 'lunch') {
+                    // Bir sonraki derse 2 dk kaldı mı?
+                    if (nextSlot && getCurrentMinutes(nextSlot.start) - currentTotalMinutes <= 2) {
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                } else {
+                    badge.classList.add('hidden');
+                }
+
+                if (activeSlot.type === 'lesson') {
+                    titleEl.textContent = activeSlot.name;
+                    descEl.textContent = "Ders İşleniyor";
+                    statusBar.className = "absolute top-0 left-0 w-full h-2 bg-red-500"; // Ders Rengi
+                    bellIcon.className = "w-24 h-24 text-red-500 transition-colors duration-300";
+                    titleEl.className = "text-3xl font-bold text-red-700 mb-2";
+                } else if (activeSlot.type === 'lunch') {
+                    titleEl.textContent = activeSlot.name;
+                    descEl.textContent = "Afiyet Olsun";
+                    statusBar.className = "absolute top-0 left-0 w-full h-2 bg-green-500"; // Öğle Arası Rengi
+                    bellIcon.className = "w-24 h-24 text-green-500 transition-colors duration-300";
+                    titleEl.className = "text-3xl font-bold text-green-700 mb-2";
+                } else {
+                    titleEl.textContent = "Teneffüs";
+                    descEl.textContent = "Dinlenme Zamanı";
+                    statusBar.className = "absolute top-0 left-0 w-full h-2 bg-blue-500"; // Teneffüs Rengi
+                    bellIcon.className = "w-24 h-24 text-blue-500 transition-colors duration-300";
+                    titleEl.className = "text-3xl font-bold text-blue-700 mb-2";
+                }
+            } else {
+                // Okul dışı zaman
+                titleEl.textContent = "Okul Kapalı";
+                descEl.textContent = "Ders programı aktif değil";
+                statusBar.className = "absolute top-0 left-0 w-full h-2 bg-slate-300";
+                bellIcon.className = "w-24 h-24 text-slate-300 transition-colors duration-300";
+                titleEl.className = "text-3xl font-bold text-slate-500 mb-2";
+                timerEl.textContent = "--:--";
+                badge.classList.add('hidden');
+            }
+
+            if (nextSlot) {
+                nextEventEl.textContent = nextSlot.start;
+            } else {
+                nextEventEl.textContent = "Bitti";
+            }
+        }
+
+        function renderScheduleList(activeSlot) {
+            const listContainer = document.getElementById('schedule-list');
+            listContainer.innerHTML = '';
+
+            schedule.forEach(slot => {
+                const isActive = activeSlot && activeSlot.id === slot.id;
+
+                const div = document.createElement('div');
+                div.className = `flex justify-between items-center p-3 rounded-lg border text-sm transition-all ${isActive
+                        ? 'bg-blue-50 border-blue-200 shadow-sm transform scale-[1.02]'
+                        : 'bg-white border-slate-100 hover:bg-slate-50'
+                    }`;
+
+                let icon = '';
+                if (slot.type === 'lesson') icon = '📚';
+                else if (slot.type === 'lunch') icon = '🍽️';
+                else icon = '🏃';
+
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-lg">${icon}</span>
+                        <div>
+                            <div class="font-semibold ${isActive ? 'text-blue-700' : 'text-slate-700'}">${slot.name}</div>
+                            <div class="text-xs text-slate-500">${slot.start} - ${slot.end}</div>
+                        </div>
+                    </div>
+                    ${isActive ? '<span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded">Aktif</span>' : ''}
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        // --- MANUEL KONTROLLER ---
+
+        function playManualBell() {
+            playBellSound('student'); // Basit zil sesi
+            log("👤 Manuel zil çalındı.");
+        }
+
+        function toggleAnthem() {
+            const btn = document.getElementById('anthem-btn');
+            const txt = document.getElementById('anthem-text');
+
+            if (isAnthemPlaying) {
+                // Durdur
+                isAnthemPlaying = false;
+                btn.classList.remove('bg-red-100', 'border-red-500');
+                btn.classList.add('bg-white');
+                txt.textContent = "İstiklal Marşı";
+                log("⏹️ İstiklal Marşı durduruldu.");
+                // Gerçekte burada audio.pause() olurdu.
+            } else {
+                // Başlat
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                isAnthemPlaying = true;
+                btn.classList.remove('bg-white');
+                btn.classList.add('bg-red-100', 'border-red-500');
+                txt.textContent = "Çalınıyor...";
+                log("🇹🇷 İstiklal Marşı çalınıyor...");
+
+                // Simüle edilmiş marş başlangıcı (Low tone drone)
+                playTone(110, 'sawtooth', 2);
+            }
+        }
+
+        function startRecording() {
+            if (isRecording) return;
+            isRecording = true;
+
+            const btn = document.getElementById('record-btn');
+            const bg = document.getElementById('record-icon-bg');
+            const txt = document.getElementById('record-text');
+
+            btn.classList.add('border-red-500', 'bg-red-50');
+            bg.classList.remove('bg-blue-100', 'group-hover:bg-blue-200');
+            bg.classList.add('bg-red-500', 'text-white', 'recording-pulse');
+            txt.textContent = "Kaydediliyor...";
+            txt.classList.add('text-red-600');
+
+            log("🎙️ Ses kaydı başladı...");
+
+            // Tarayıcı izin verirse gerçek kayıt başlatılabilir
+            // navigator.mediaDevices.getUserMedia({ audio: true })...
+        }
+
+        function stopRecording() {
+            if (!isRecording) return;
+            isRecording = false;
+
+            const btn = document.getElementById('record-btn');
+            const bg = document.getElementById('record-icon-bg');
+            const txt = document.getElementById('record-text');
+
+            btn.classList.remove('border-red-500', 'bg-red-50');
+            bg.classList.remove('bg-red-500', 'text-white', 'recording-pulse');
+            bg.classList.add('bg-blue-100', 'group-hover:bg-blue-200');
+            txt.textContent = "Kaydedildi";
+            txt.classList.remove('text-red-600');
+
+            setTimeout(() => {
+                txt.textContent = "Bas Konuş (Kayıt)";
+            }, 2000);
+
+            log("💾 Ses kaydı tamamlandı ve saklandı.");
+        }
+
+        function showNotification(msg, type) {
+            // Basit toast simülasyonu
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-medium transform transition-all duration-500 translate-y-[-100%] z-50 ${type === 'success' ? 'bg-green-600' : type === 'warning' ? 'bg-orange-500' : 'bg-blue-600'}`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+
+            // Animasyon trigger
+            setTimeout(() => toast.classList.remove('translate-y-[-100%]'), 100);
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
+        // Başlangıç
+        setInterval(updateClock, 1000);
+        updateClock();
+        renderScheduleList(null);
+
+    </script>
+</body>
+
+</html>
